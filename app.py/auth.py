@@ -23,4 +23,4 @@ except Exception:
     return jsonify({"error": "invalid user"}), 400
     user = {"id": uid, "email": f"demo{uid}@example.com"}
     return fn(user, *args, **kwargs)
-return wrapper
+    return wrapper
