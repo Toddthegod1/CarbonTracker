@@ -1,0 +1,14 @@
+[Unit]
+Description=Carbon Tracker Worker
+After=network-online.target
+
+
+[Service]
+EnvironmentFile=/etc/default/carbon-app
+WorkingDirectory=/opt/carbon-tracker
+ExecStart=/opt/carbon-tracker/.venv/bin/celery -A app.tasks worker --loglevel=info -Q ${SQS_QUEUE_NAME}
+Restart=always
+
+
+[Install]
+WantedBy=multi-user.target

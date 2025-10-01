@@ -1,0 +1,58 @@
+<!doctype html>
+<h2>Entries</h2>
+<table id="entries"></table>
+</section>
+</div>
+
+
+<script>
+const headers = { 'X-Demo-User': '1', 'Content-Type': 'application/json' };
+
+
+async function fetchSummaries(period='weekly'){
+const res = await fetch(`/api/summaries?period=${period}`, {headers});
+const data = await res.json();
+const tbl = document.getElementById('summary');
+tbl.innerHTML = '<tr><th>Start</th><th>End</th><th>kg CO₂e</th></tr>' +
+data.map(r=>`<tr><td>${r.start.slice(0,10)}</td><td>${r.end.slice(0,10)}</td><td>${r.kg_co2e}</td></tr>`).join('');
+}
+
+
+async function fetchEntries(){
+const res = await fetch('/api/entries', {headers});
+const data = await res.json();
+const tbl = document.getElementById('entries');
+tbl.innerHTML = '<tr><th>Date</th><th>Category</th><th>Qty</th><th>Unit</th></tr>' +
+data.map(e=>`<tr><td>${e.occurred_at.slice(0,10)}</td><td>${e.category}</td><td>${e.quantity}</td><td>${e.unit}</td></tr>`).join('');
+}
+
+
+document.getElementById('entry-form').addEventListener('submit', async (ev)=>{
+ev.preventDefault();
+const body = {
+category: document.getElementById('category').value,
+quantity: document.getElementById('quantity').value,
+unit: document.getElementById('unit').value,
+occurred_at: document.getElementById('occurred_at').value
+};
+const res = await fetch('/api/entries', {method:'POST', headers, body: JSON.stringify(body)});
+const out = await res.json();
+await fetchEntries();
+await fetchSummaries();
+});
+
+
+for (const btn of document.querySelectorAll('.tabs button')){
+btn.addEventListener('click', (e)=>{
+document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));
+e.target.classList.add('active');
+fetchSummaries(e.target.dataset.p);
+})
+}
+
+
+fetchEntries();
+fetchSummaries();
+</script>
+</body>
+</html>
