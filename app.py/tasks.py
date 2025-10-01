@@ -1,45 +1,47 @@
+# app/tasks.py
 import json
 from datetime import datetime
-from sqlalchemy import func
 from celery_app import celery
-from models import SessionLocal, Entry, EmissionFactor, Summary, period_bounds
+from models import period_bounds
+from storage_svc import list_entries, write_summaries
 
+# Factors inline (match /api/factors)
+FACTORS = {
+    ("electricity","kWh"): 0.10,
+    ("petrol","L"): 2.31,
+    ("diesel","L"): 2.68,
+    ("beef","serving"): 5.0,
+    ("chicken","serving"): 1.5,
+    ("flight_shorthaul","km"): 0.15,
+}
 
 @celery.task()
-def recalc_summaries_task(message: str):
-payload = json.loads(message) if isinstance(message, str) else message
-if payload.get("type") != "recalc":
-return
-user_id = int(payload["user_id"]) # required
-db = SessionLocal()
-try:
-# Join entries to factors and compute kg_co2e per entry
-rows = db.query(
-Entry.occurred_at.label("t"),
-(Entry.quantity * EmissionFactor.kg_co2e_per_unit).label("kg")
-).join(EmissionFactor, (Entry.category == EmissionFactor.category) & (Entry.unit == EmissionFactor.unit))\
-.filter(Entry.user_id == user_id).all()
+def recalc_summaries_task(message):
+    payload = json.loads(message) if isinstance(message, str) else message
+    if payload.get("type") != "recalc":
+        return
+    user_id = int(payload["user_id"])
 
+    entries = list_entries(user_id, limit=10000)
+    buckets = {"daily":{}, "weekly":{}, "monthly":{}}
 
-# Aggregate into three periods
-periods = ["daily", "weekly", "monthly"]
-acc = {p: {} for p in periods}
-for t, kg in rows:
-for p in periods:
-start, end = period_bounds(t, p)
-key = start
-acc[p][key] = acc[p].get(key, 0.0) + float(kg)
+    for e in entries:
+        try:
+            t = datetime.fromisoformat(e["occurred_at"])
+        except Exception:
+            continue
+        f = FACTORS.get((e["category"], e["unit"]))
+        if f is None:
+            continue
+        kg = float(e["quantity"]) * f
+        for p in buckets.keys():
+            s, e_ = period_bounds(t, p)
+            key = (s.isoformat(), e_.isoformat())
+            buckets[p][key] = buckets[p].get(key, 0.0) + kg
 
-
-# Upsert summaries
-for p, buckets in acc.items():
-for start, total in buckets.items():
-s = db.query(Summary).filter_by(user_id=user_id, period=p, period_start=start).one_or_none()
-if not s:
-_, end = period_bounds(start, p)
-s = Summary(user_id=user_id, period=p, period_start=start, period_end=end, kg_co2e=0.0)
-db.add(s)
-s.kg_co2e = round(total, 6)
-db.commit()
-finally:
-db.close()
+    for p, m in buckets.items():
+        rows = [
+            {"period": p, "start": s, "end": e, "kg_co2e": round(v, 6)}
+            for (s, e), v in sorted(m.items(), key=lambda x: x[0], reverse=True)
+        ]
+        write_summaries(user_id, p, rows)
