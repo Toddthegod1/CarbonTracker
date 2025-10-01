@@ -9,12 +9,13 @@ def _is_s3() -> bool:
     return RAW_BUCKET.startswith("s3://")
 
 def _bucket_or_path():
-    # returns bucket name when S3, or filesystem base path when file://
-    return RAW_BUCKET.split("://", 1)[1]
+    if "://" in RAW_BUCKET:
+        return RAW_BUCKET.split("://", 1)[1]
+    return RAW_BUCKET  # safety fallback
 
 # ---------- Local filesystem backend ----------
 def _fs_path(*parts: str) -> str:
-    base = _bucket_or_path()  # base dir like /var/lib/carbon-tracker
+    base = _bucket_or_path()
     return os.path.join(base, *map(str, parts))
 
 def _fs_read_text(path: str) -> str:
@@ -45,7 +46,6 @@ def _s3_key_summary(user_id: int, period: str) -> str:
 
 # ---------- Public API ----------
 def append_entry(user_id: int, entry: Dict):
-    """Append one entry (JSON line) for a user."""
     if _is_s3():
         b = _bucket_or_path()
         s3 = get_s3()
