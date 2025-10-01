@@ -1,4 +1,3 @@
-sudo tee /opt/carbon-tracker/app.py/auth.py >/dev/null <<'PY'
 import os
 from functools import wraps
 from flask import request, jsonify
@@ -16,4 +15,3 @@ def require_user(fn):
         user = {"id": uid, "email": f"demo{uid}@example.com"}
         return fn(user, *args, **kwargs)
     return wrapper
-PY
