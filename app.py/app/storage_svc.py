@@ -9,10 +9,10 @@ def _is_s3() -> bool:
     return RAW_BUCKET.startswith("s3://")
 
 def _bucket_or_path():
+    # returns bucket name when S3, or filesystem base path when file://
     return RAW_BUCKET.split("://", 1)[1]
 
 # ---------- Local filesystem backend ----------
-import os
 def _fs_path(*parts: str) -> str:
     base = _bucket_or_path()  # base dir like /var/lib/carbon-tracker
     return os.path.join(base, *map(str, parts))
@@ -29,13 +29,13 @@ def _fs_write_text(path: str, data: str):
         f.write(data)
 
 # ---------- S3 backend ----------
-_s3 = None
-def _s3():
-    global _s3
-    if _s3 is None:
+_s3_client = None
+def get_s3():
+    global _s3_client
+    if _s3_client is None:
         import boto3
-        _s3 = boto3.client("s3", region_name=REGION)
-    return _s3
+        _s3_client = boto3.client("s3", region_name=REGION)
+    return _s3_client
 
 def _s3_key_entries(user_id: int) -> str:
     return f"users/{user_id}/entries.jsonl"
@@ -48,7 +48,7 @@ def append_entry(user_id: int, entry: Dict):
     """Append one entry (JSON line) for a user."""
     if _is_s3():
         b = _bucket_or_path()
-        s3 = _s3()
+        s3 = get_s3()
         key = _s3_key_entries(user_id)
         try:
             obj = s3.get_object(Bucket=b, Key=key)
@@ -66,7 +66,7 @@ def append_entry(user_id: int, entry: Dict):
 def list_entries(user_id: int, limit: int = 100) -> List[Dict]:
     if _is_s3():
         b = _bucket_or_path()
-        s3 = _s3()
+        s3 = get_s3()
         key = _s3_key_entries(user_id)
         try:
             obj = s3.get_object(Bucket=b, Key=key)
@@ -85,7 +85,7 @@ def write_summaries(user_id: int, period: str, rows: List[Dict]):
     payload = json.dumps(rows).encode("utf-8")
     if _is_s3():
         b = _bucket_or_path()
-        _s3().put_object(Bucket=b, Key=_s3_key_summary(user_id, period), Body=payload)
+        get_s3().put_object(Bucket=b, Key=_s3_key_summary(user_id, period), Body=payload)
     else:
         p = _fs_path("summaries", user_id, f"{period}.json")
         _fs_write_text(p, payload.decode("utf-8"))
@@ -93,7 +93,7 @@ def write_summaries(user_id: int, period: str, rows: List[Dict]):
 def read_summaries(user_id: int, period: str) -> List[Dict]:
     if _is_s3():
         b = _bucket_or_path()
-        s3 = _s3()
+        s3 = get_s3()
         key = _s3_key_summary(user_id, period)
         try:
             obj = s3.get_object(Bucket=b, Key=key)
