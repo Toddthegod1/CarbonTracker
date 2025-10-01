@@ -19,7 +19,7 @@ def require_user(fn):
         uid = request.headers.get("X-Demo-User")
 try:
     uid = int(uid) if uid else DEMO_USER_ID
-    except Exception:
+except Exception:
     return jsonify({"error": "invalid user"}), 400
     user = {"id": uid, "email": f"demo{uid}@example.com"}
     return fn(user, *args, **kwargs)
