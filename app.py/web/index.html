@@ -39,90 +39,99 @@
   <h2>Entries</h2>
   <table id="entries"></table>
 
-  <!-- Your script -->
 <script>
-const headers = { 'X-Demo-User': '1', 'Content-Type': 'application/json' };
-let currentPeriod = 'weekly'; // default tab
+ // Common headers: demo user + JSON
+  const headers = { 'X-Demo-User': '1', 'Content-Type': 'application/json' };
+  let currentPeriod = 'weekly'; // default tab selection
 
-async function fetchSummaries(period = currentPeriod) {
-  currentPeriod = period;
-  try {
-    const res = await fetch(`/api/summaries?period=${encodeURIComponent(period)}`, { headers });
-    if (!res.ok) throw new Error(await res.text());
-    const data = await res.json();
+  // ---- Summaries ----
+  async function fetchSummaries(period = currentPeriod) {
+    currentPeriod = period;
+    try {
+      const res = await fetch(`/api/summaries?period=${encodeURIComponent(period)}`, { headers });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
 
-    const tbl = document.getElementById('summary');
-    tbl.innerHTML = '<tr><th>Start</th><th>End</th><th>kg CO₂e</th></tr>' +
-      data.map(r => `
-        <tr>
-          <td>${(r.start || '').slice(0,10)}</td>
-          <td>${(r.end || '').slice(0,10)}</td>
-          <td>${r.kg_co2e}</td>
-        </tr>`).join('');
-  } catch (err) {
-    console.error('GET /api/summaries failed:', err);
+      const tbl = document.getElementById('summary');
+      tbl.innerHTML = `
+        <tr><th>Start</th><th>End</th><th>kg CO₂e</th></tr>
+        ${data.map(r => `
+          <tr>
+            <td>${(r.start || '').slice(0,10)}</td>
+            <td>${(r.end || '').slice(0,10)}</td>
+            <td>${r.kg_co2e}</td>
+          </tr>
+        `).join('')}
+      `;
+    } catch (err) {
+      console.error('GET /api/summaries failed:', err);
+    }
   }
-}
 
-async function fetchEntries() {
-  try {
-    const res = await fetch('/api/entries', { headers });
-    if (!res.ok) throw new Error(await res.text());
-    const data = await res.json();
+  // ---- Entries ----
+  async function fetchEntries() {
+    try {
+      const res = await fetch('/api/entries', { headers });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
 
-    const tbl = document.getElementById('entries');
-    tbl.innerHTML = '<tr><th>Date</th><th>Category</th><th>Qty</th><th>Unit</th></tr>' +
-      data.map(e => `
-        <tr>
-          <td>${(e.occurred_at || '').slice(0,10)}</td>
-          <td>${e.category}</td>
-          <td>${e.quantity}</td>
-          <td>${e.unit}</td>
-        </tr>`).join('');
-  } catch (err) {
-    console.error('GET /api/entries failed:', err);
+      const tbl = document.getElementById('entries');
+      tbl.innerHTML = `
+        <tr><th>Date</th><th>Category</th><th>Qty</th><th>Unit</th></tr>
+        ${data.map(e => `
+          <tr>
+            <td>${(e.occurred_at || '').slice(0,10)}</td>
+            <td>${e.category}</td>
+            <td>${e.quantity}</td>
+            <td>${e.unit}</td>
+          </tr>
+        `).join('')}
+      `;
+    } catch (err) {
+      console.error('GET /api/entries failed:', err);
+    }
   }
-}
 
-// Add-entry form
-document.getElementById('entry-form').addEventListener('submit', async (ev) => {
-  ev.preventDefault();
+  // ---- Add-entry form ----
+  document.getElementById('entry-form').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
 
-  const dateVal = document.getElementById('occurred_at').value; // "YYYY-MM-DD" from type=date
-  const body = {
-    category: document.getElementById('category').value.trim(),
-    quantity: parseFloat(document.getElementById('quantity').value),
-    unit: document.getElementById('unit').value.trim(),
-    ...(dateVal ? { occurred_at: new Date(dateVal + 'T00:00:00').toISOString() } : {})
-  };
+    const dateVal = document.getElementById('occurred_at').value; // "YYYY-MM-DD"
+    const body = {
+      category: document.getElementById('category').value.trim(),
+      quantity: parseFloat(document.getElementById('quantity').value),
+      unit: document.getElementById('unit').value.trim(),
+      ...(dateVal ? { occurred_at: new Date(dateVal + 'T00:00:00').toISOString() } : {})
+    };
 
-  try {
-    const res = await fetch('/api/entries', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body)
-    });
-    if (!res.ok) throw new Error(await res.text());
-    await fetchEntries();
-    await fetchSummaries(currentPeriod);
-  } catch (err) {
-    console.error('POST /api/entries failed:', err);
-    alert('Adding entry failed. Check console for details.');
-  }
-});
+    try {
+      const res = await fetch('/api/entries', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) throw new Error(await res.text());
 
-// Tabs
-for (const btn of document.querySelectorAll('.tabs button')) {
-  btn.addEventListener('click', (e) => {
-    document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
-    e.target.classList.add('active');
-    fetchSummaries(e.target.dataset.p);
+      await fetchEntries();
+      await fetchSummaries(currentPeriod);
+    } catch (err) {
+      console.error('POST /api/entries failed:', err);
+      alert('Adding entry failed. Check console for details.');
+    }
   });
-}
 
-// Initial load
-fetchEntries();
-fetchSummaries();
+  // ---- Tabs (Daily / Weekly / Monthly) ----
+  document.querySelectorAll('.tabs button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      fetchSummaries(btn.dataset.p);
+    });
+  });
+
+  // ---- Initial load ----
+  fetchEntries();
+  fetchSummaries('weekly');
 </script>
 
 </body>
