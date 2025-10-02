@@ -1,22 +1,23 @@
-import os
 from celery import Celery
 
+REGION = "us-east-1"
+QUEUE = "carbon-jobs"
+ACCOUNT_ID = "330863234710"  
 
-AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
-SQS_QUEUE = os.environ.get("SQS_QUEUE_NAME", "carbon-jobs")
-SQS_QUEUE_URL = os.environ.get("SQS_QUEUE_URL")
-
-
-celery = Celery("carbon", broker="sqs://")
-
+celery = Celery(__name__, broker="sqs://")
 
 celery.conf.update(
-task_default_queue=SQS_QUEUE,
-broker_transport_options={
-"region": AWS_REGION,
-"visibility_timeout": 60,
-"predefined_queues": {
-SQS_QUEUE: {"url": SQS_QUEUE_URL} if SQS_QUEUE_URL else {}
-},
-},
+    task_default_queue=QUEUE,
+    task_default_routing_key=QUEUE,
+    broker_transport_options={
+        "region": REGION,
+        "predefined_queues": {
+            QUEUE: {
+                "url": f"https://sqs.{REGION}.amazonaws.com/{ACCOUNT_ID}/{QUEUE}"
+            }
+        },
+        "visibility_timeout": 60,  # seconds
+        "polling_interval": 1,
+    },
+    worker_hijack_root_logger=False,
 )
