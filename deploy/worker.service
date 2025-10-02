@@ -7,9 +7,7 @@ Wants=network-online.target
 User=ec2-user
 Group=ec2-user
 WorkingDirectory=/opt/carbon-tracker
-# Make sure Celery can import from /opt/carbon-tracker/app.py
 Environment=PYTHONPATH=/opt/carbon-tracker/app.py
-# Run the worker on ONLY the carbon-jobs queue
 ExecStart=/opt/carbon-tracker/.venv/bin/celery -A celery_app:celery worker -Q carbon-jobs --loglevel=info
 Restart=always
 RestartSec=2
