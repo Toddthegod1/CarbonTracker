@@ -59,4 +59,14 @@ def get_summaries(user):
     period = request.args.get("period", "weekly")
     return jsonify(read_summaries(user["id"], period))
 
+from flask import send_from_directory
+
+@app.route("/")
+def index():
+    return send_from_directory("../web", "index.html")
+
+@app.route("/static/<path:filename>")
+def static_files(filename):
+    return send_from_directory("../web/static", filename)
+
 
