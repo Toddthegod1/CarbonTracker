@@ -33,6 +33,7 @@ celery.conf.update(
 
     # ----- Logging -----
     worker_hijack_root_logger=False,
+    include=["tasks"],
 )
 
 # Disable Celery's remote control / events so it won't try to use the 'celery' pidbox/broadcast queue
