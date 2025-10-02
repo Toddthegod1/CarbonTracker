@@ -40,49 +40,38 @@
   <table id="entries"></table>
 
   <!-- Your script -->
-  <script>
-    const headers = { 'X-Demo-User': '1', 'Content-Type': 'application/json' };
+<script>
+const headers = { 'X-Demo-User': '1', 'Content-Type': 'application/json' };
 
-    async function fetchSummaries(period='weekly'){
-      const res = await fetch(`/api/summaries?period=${period}`, {headers});
-      const data = await res.json();
-      const tbl = document.getElementById('summary');
-      tbl.innerHTML = '<tr><th>Start</th><th>End</th><th>kg CO₂e</th></tr>' +
-        data.map(r=>`<tr><td>${r.start.slice(0,10)}</td><td>${r.end.slice(0,10)}</td><td>${r.kg_co2e}</td></tr>`).join('');
-    }
+document.getElementById('entry-form').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
 
-    async function fetchEntries(){
-      const res = await fetch('/api/entries', {headers});
-      const data = await res.json();
-      const tbl = document.getElementById('entries');
-      tbl.innerHTML = '<tr><th>Date</th><th>Category</th><th>Qty</th><th>Unit</th></tr>' +
-        data.map(e=>`<tr><td>${e.occurred_at.slice(0,10)}</td><td>${e.category}</td><td>${e.quantity}</td><td>${e.unit}</td></tr>`).join('');
-    }
+  const dateVal = document.getElementById('occurred_at').value; // "YYYY-MM-DD" from type=date
+  const body = {
+    category: document.getElementById('category').value.trim(),
+    quantity: parseFloat(document.getElementById('quantity').value), // ensure number
+    unit: document.getElementById('unit').value.trim(),
+    // include occurred_at only if the user picked a date
+    ...(dateVal ? { occurred_at: new Date(dateVal + 'T00:00:00').toISOString() } : {})
+  };
 
-    const form = document.getElementById('entry-form');
-    form.addEventListener('submit', async (ev)=>{
-      ev.preventDefault();
-      const body = {
-        category: document.getElementById('category').value,
-        quantity: document.getElementById('quantity').value,
-        unit: document.getElementById('unit').value,
-        occurred_at: document.getElementById('occurred_at').value
-      };
-      await fetch('/api/entries', {method:'POST', headers, body: JSON.stringify(body)});
-      await fetchEntries();
-      await fetchSummaries();
-    });
+  const res = await fetch('/api/entries', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body)
+  });
 
-    for (const btn of document.querySelectorAll('.tabs button')){
-      btn.addEventListener('click', (e)=>{
-        document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));
-        e.target.classList.add('active');
-        fetchSummaries(e.target.dataset.p);
-      });
-    }
+  if (!res.ok) {
+    const text = await res.text();
+    console.error('POST /api/entries failed', res.status, text);
+    alert('Adding entry failed. Check console for details.');
+    return;
+  }
 
-    fetchEntries();
-    fetchSummaries();
-  </script>
+  await fetchEntries();
+  await fetchSummaries();
+});
+</script>
+
 </body>
 </html>
