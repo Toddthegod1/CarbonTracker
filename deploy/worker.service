@@ -1,14 +1,18 @@
 [Unit]
-Description=Carbon Tracker Worker
+Description=CarbonTracker Celery Worker
 After=network-online.target
-
+Wants=network-online.target
 
 [Service]
-EnvironmentFile=/etc/default/carbon-app
+User=ec2-user
+Group=ec2-user
 WorkingDirectory=/opt/carbon-tracker
-ExecStart=/opt/carbon-tracker/.venv/bin/celery -A app.tasks worker --loglevel=info -Q ${SQS_QUEUE_NAME}
+# Make sure Celery can import from /opt/carbon-tracker/app.py
+Environment=PYTHONPATH=/opt/carbon-tracker/app.py
+# Run the worker on ONLY the carbon-jobs queue
+ExecStart=/opt/carbon-tracker/.venv/bin/celery -A celery_app:celery worker -Q carbon-jobs --loglevel=info
 Restart=always
-
+RestartSec=2
 
 [Install]
 WantedBy=multi-user.target
