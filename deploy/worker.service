@@ -7,13 +7,13 @@ Wants=network-online.target
 User=ec2-user
 Group=ec2-user
 WorkingDirectory=/opt/carbon-tracker
-
+EnvironmentFile=/etc/default/carbon-app
 Environment=PYTHONPATH=/opt/carbon-tracker/app.py
-Environment=AWS_DEFAULT_REGION=us-east-1
-
-# Celery command
-ExecStart=/opt/carbon-tracker/.venv/bin/celery --app=celery_app:celery worker --queues=carbon-jobs --loglevel=info
-
+ExecStart=/opt/carbon-tracker/.venv/bin/celery \
+  -A celery_app:celery worker \
+  --queues=carbon-jobs \
+  --include=tasks \
+  --loglevel=info
 Restart=always
 RestartSec=2
 
